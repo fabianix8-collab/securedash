@@ -1,0 +1,155 @@
+/* =============================================================================
+   SecureDash - Sistema de diseño
+   =============================================================================
+   Paleta basada en el dark mode de GitHub (estandar de facto en herramientas
+   de seguridad/dev: Wazuh, Grafana, GitHub Security, etc.) con colores
+   semanticos por nivel de riesgo:
+     - critico -> rojo   (#f85149)
+     - alto    -> ambar  (#d29922)
+     - medio   -> amarillo (#e3b341)
+     - bajo    -> verde  (#3fb950)
+============================================================================= */
+
+:root {
+  --bg: #0d1117;
+  --bg-panel: #161b22;
+  --bg-elevated: #21262d;
+  --border: #30363d;
+
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+
+  --accent: #58a6ff;
+  --accent-soft: rgba(88, 166, 255, 0.15);
+
+  --critical: #f85149;
+  --high: #d29922;
+  --medium: #e3b341;
+  --low: #3fb950;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "Consolas", "Liberation Mono", monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ---------------------------------------------------------------------------
+   Utilidades compartidas entre componentes
+--------------------------------------------------------------------------- */
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.panel-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.badge.critical {
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--critical);
+}
+.badge.high {
+  background: rgba(210, 153, 34, 0.15);
+  color: var(--high);
+}
+.badge.medium {
+  background: rgba(227, 179, 65, 0.15);
+  color: var(--medium);
+}
+.badge.low {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--low);
+}
+
+.text-critical { color: var(--critical); }
+.text-high { color: var(--high); }
+.text-medium { color: var(--medium); }
+.text-low { color: var(--low); }
+.text-accent { color: var(--accent); }
+.text-muted { color: var(--text-muted); }
+
+/* Scrollbars finos para listas internas de paneles */
+.scroll-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Indicador "en vivo" */
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--low);
+  display: inline-block;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Respeta preferencia de reduccion de movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot {
+    animation: none;
+  }
+}

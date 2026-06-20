@@ -1,0 +1,50 @@
+{
+  "T1110": {
+    "name": "Brute Force",
+    "name_es": "Fuerza bruta",
+    "tactic": "Credential Access",
+    "tactic_es": "Acceso a credenciales",
+    "url": "https://attack.mitre.org/techniques/T1110/",
+    "description_es": "Intentos repetidos de adivinar credenciales válidas mediante prueba sistemática."
+  },
+  "T1110.004": {
+    "name": "Credential Stuffing",
+    "name_es": "Relleno de credenciales",
+    "tactic": "Credential Access",
+    "tactic_es": "Acceso a credenciales",
+    "url": "https://attack.mitre.org/techniques/T1110/004/",
+    "description_es": "Uso de credenciales filtradas en brechas previas para intentar acceso en otros servicios."
+  },
+  "T1190": {
+    "name": "Exploit Public-Facing Application",
+    "name_es": "Explotacion de aplicacion publica",
+    "tactic": "Initial Access",
+    "tactic_es": "Acceso inicial",
+    "url": "https://attack.mitre.org/techniques/T1190/",
+    "description_es": "Aprovechamiento de vulnerabilidades en aplicaciones expuestas a internet (ej. inyeccion SQL)."
+  },
+  "T1595": {
+    "name": "Active Scanning",
+    "name_es": "Escaneo activo",
+    "tactic": "Reconnaissance",
+    "tactic_es": "Reconocimiento",
+    "url": "https://attack.mitre.org/techniques/T1595/",
+    "description_es": "El atacante sondea la red objetivo para recolectar informacion antes de un ataque."
+  },
+  "T1595.001": {
+    "name": "Scanning IP Blocks",
+    "name_es": "Escaneo de bloques IP",
+    "tactic": "Reconnaissance",
+    "tactic_es": "Reconocimiento",
+    "url": "https://attack.mitre.org/techniques/T1595/001/",
+    "description_es": "Escaneo sistematico de rangos de IP/puertos para identificar servicios expuestos."
+  },
+  "T1078": {
+    "name": "Valid Accounts",
+    "name_es": "Cuentas validas",
+    "tactic": "Initial Access / Persistence",
+    "tactic_es": "Acceso inicial / Persistencia",
+    "url": "https://attack.mitre.org/techniques/T1078/",
+    "description_es": "Uso de cuentas legitimas en horarios o contextos anomalos, posible indicio de cuenta comprometida o insider threat."
+  }
+}

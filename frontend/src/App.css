@@ -1,0 +1,79 @@
+.app {
+  min-height: 100%;
+  padding: 0;
+}
+
+.app__main {
+  padding: 16px 20px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stack-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}
+
+/* Telefonos: menos padding/gap general */
+@media (max-width: 640px) {
+  .app__main {
+    padding: 12px 12px 24px;
+    gap: 12px;
+  }
+
+  .grid-2,
+  .grid-3,
+  .stack-col,
+  .grid-4 {
+    gap: 8px;
+  }
+}
+
+.app__footer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 12px 0 24px;
+}
+
+.app__footer a {
+  color: var(--text-muted);
+}
+
+.app__footer a:hover {
+  color: var(--accent);
+}
