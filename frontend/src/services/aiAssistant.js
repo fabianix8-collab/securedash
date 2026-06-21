@@ -24,8 +24,8 @@ const FALLBACK_MESSAGE = `El asistente IA no esta configurado en este despliegue
 Para activarlo, sigue docs/api-key-handling.md:
 - Opcion A (recomendada): despliega supabase/functions/ai-proxy y configura
   VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY.
-- Opcion B (BYOK): ingresa tu propia API key de Anthropic abajo (solo para
-  uso personal/demo, no para un sitio publico).`;
+- Opcion B (BYOK): ingresa tu propia API key de Google AI Studio abajo
+  (solo para uso personal/demo, no para un sitio publico).`;
 
 export async function askAssistant({ question, alertsContext, byokKey }) {
   if (isSupabaseConfigured) {
@@ -57,24 +57,23 @@ async function askViaEdgeFunction(question, alertsContext) {
 }
 
 async function askViaDirectApi(question, alertsContext, apiKey) {
-  const system = `Eres SecureDash AI, un asistente de ciberseguridad integrado en un panel SOC para PYMEs chilenas. Responde siempre en espanol, en maximo 3-4 oraciones, y termina con una accion concreta recomendada.${
-    alertsContext ? `\n\nAlertas activas actuales:\n${alertsContext}` : ""
-  }`;
+  // Modo BYOK con Gemini: la key se usa directamente desde el navegador
+  // solo para demos personales. Ver docs/api-key-handling.md.
+  const GEMINI_MODEL = "gemini-2.0-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+  const systemWithContext = alertsContext
+    ? `${buildSystem()}\n\nAlertas activas actuales:\n${alertsContext}`
+    : buildSystem();
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 500,
-        system,
-        messages: [{ role: "user", content: question }],
+        system_instruction: { parts: [{ text: systemWithContext }] },
+        contents: [{ role: "user", parts: [{ text: question }] }],
+        generationConfig: { maxOutputTokens: 500, temperature: 0.4 },
       }),
     });
 
@@ -84,9 +83,15 @@ async function askViaDirectApi(question, alertsContext, apiKey) {
     }
 
     const data = await res.json();
-    const text = data?.content?.[0]?.text ?? "Sin respuesta del modelo.";
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "Sin respuesta del modelo.";
     return { text, mode: "byok" };
   } catch (err) {
-    return { error: `Error llamando a la API de Anthropic: ${err.message}` };
+    return { error: `Error llamando a la API de Gemini: ${err.message}` };
   }
+}
+
+function buildSystem() {
+  return `Eres SecureDash AI, un asistente de ciberseguridad integrado en un panel SOC para PYMEs chilenas. Responde en espanol, maximo 3-4 oraciones, termina con una accion concreta recomendada.`;
 }

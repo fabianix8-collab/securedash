@@ -72,16 +72,16 @@ export default function AIAssistant({ alerts, pendingQuestion, onConsumePending 
       {!isSupabaseConfigured && (
         <div className="ai-config-hint text-muted">
           Sin Edge Function configurada. Puedes ingresar una API key de
-          Anthropic solo para esta sesión (no se guarda):{" "}
+          Google AI Studio solo para esta sesión (no se guarda):{" "}
           <input
             type="password"
-            placeholder="sk-ant-..."
+            placeholder="AQ..."
             value={byokKey}
             onChange={(e) => setByokKey(e.target.value)}
             className="ai-byok-input"
           />
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
-            obtener key
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
+            obtener key gratis
           </a>
         </div>
       )}
