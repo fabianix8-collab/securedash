@@ -65,7 +65,7 @@ export default function AIAssistant({ alerts, pendingQuestion, onConsumePending 
       <div className="panel-title">
         <span>🤖 Asistente IA — Análisis de amenazas</span>
         <span className="badge" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
-          Claude API
+        Gemini AI
         </span>
       </div>
 
