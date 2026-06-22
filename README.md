@@ -1,214 +1,94 @@
-# 🛡️ SecureDash — Panel de Monitoreo de Seguridad
+# 🛡️ SecureDash — Panel de Monitoreo de Seguridad en Tiempo Real
 
-Panel de monitoreo estilo SOC (Security Operations Center) orientado a PYMEs
-chilenas: ingesta logs de seguridad, aplica reglas de deteccion mapeadas al
-framework **MITRE ATT&CK**, y muestra alertas priorizadas con un asistente IA
-que las explica en lenguaje simple.
+> **Demo en vivo:** [fabianix8-collab.github.io/securedash](https://fabianix8-collab.github.io/securedash/)
 
-> **Estado del proyecto:** demo funcional con datos sinteticos. Ver la
-> seccion [Datos: simulados vs reales](#-datos-simulados-vs-reales) para una
-> explicacion honesta de que es real y que no, y la seccion
-> [Roadmap](#-roadmap--proximos-pasos) para el camino a produccion.
+Panel de monitoreo estilo SOC (Security Operations Center) que detecta amenazas de seguridad, las mapea al framework **MITRE ATT&CK**, y las explica en lenguaje simple mediante un asistente IA. Construido para demostrar conocimiento real del ciclo completo de detección de amenazas: desde el log crudo hasta la alerta priorizada en pantalla.
 
 ---
 
-## Por que este proyecto
+## ¿Qué hace?
 
-La ciberseguridad en Chile esta en una etapa temprana: la mayoria de las
-PYMEs no tiene presupuesto para un SOC real ni para herramientas como Splunk
-o Wazuh, que cuestan miles de dolares al mes. Incidentes recientes (ej. el
-ataque de ransomware a Banco Estado en 2023) muestran que la amenaza es real
-incluso para organizaciones grandes.
+- **Detecta 5 tipos de ataque** usando reglas con lógica real de SOC: fuerza bruta SSH, inyección SQL, escaneo de puertos, credential stuffing y acceso anómalo fuera de horario
+- **Mapea cada alerta a MITRE ATT&CK** (T1110, T1190, T1595.001, T1110.004, T1078) con links directos al framework
+- **Prioriza alertas** por severidad (Crítico / Alto / Medio / Bajo) con filtros de triage y flujo de resolución
+- **Explica amenazas en lenguaje simple** mediante un asistente IA (Gemini) integrado como proxy seguro vía Supabase Edge Function — la API key nunca queda expuesta en el frontend
+- **Visualiza patrones** con gráficos de amenazas por hora, distribución por técnica MITRE y ranking de IPs atacantes por risk score normalizado
+- **Despliega automáticamente** con GitHub Actions en cada push a `main`
 
-SecureDash es un ejercicio para entender, de punta a punta, como funciona la
-deteccion de amenazas: desde el log crudo hasta la alerta priorizada, pasando
-por las reglas que un analista SOC junior usaria todos los dias.
+---
+
+## Demo
+
+**[→ Ver dashboard en vivo](https://fabianix8-collab.github.io/securedash/)**
+
+El asistente IA responde preguntas sobre cualquier alerta. Haz click en una alerta del panel para que la explique, o usa los botones rápidos:
+
+- 🔴 Amenaza más crítica
+- Resumen ejecutivo
+- Priorización por impacto
+- Explicación de fuerza bruta
+
+---
+
+## Screenshots
+
+![Dashboard principal — alertas, métricas y gráfico de amenazas por hora](docs/images/dashboard-overview.png)
+
+![Panel inferior — distribución MITRE ATT&CK, riesgo por país y asistente IA](docs/images/dashboard-ai.png)
 
 ---
 
 ## Arquitectura
 
-```mermaid
-flowchart LR
-    subgraph Fuente de datos
-        A1[log_generator.py<br/>logs sinteticos]
-        A2[Honeypot real<br/>Cowrie - opcional]
-    end
-
-    A1 --> B[detection_engine.py<br/>5 reglas de deteccion]
-    A2 -. adapter .-> B
-
-    B --> C[dashboard_data.json<br/>alertas + MITRE ATT&CK]
-    C --> D[load_to_supabase.py]
-    D --> E[(Supabase<br/>alerts / attacker_ips<br/>RLS habilitado)]
-
-    E -- lectura publica --> F[Frontend React<br/>Chart.js]
-    F -- pregunta --> G[Edge Function<br/>ai-proxy]
-    G -- proxy seguro --> H[Claude API]
-    H -- explicacion --> F
+```
+logs (JSON Lines)
+      │
+      ▼
+detection_engine.py  ──►  dashboard_data.json
+(5 reglas MITRE ATT&CK)         │
+      │                          ▼
+      ▼                   Frontend React
+load_to_supabase.py  ──►  (Chart.js + Vite)
+      │                          │
+      ▼                          ▼
+Supabase (Postgres)       Edge Function ai-proxy
++ RLS habilitado          (Gemini API, key en servidor)
 ```
 
-La API key de Anthropic vive como secret en la Edge Function (servidor),
-nunca en el bundle del frontend. Ver
-[`docs/api-key-handling.md`](docs/api-key-handling.md) para el detalle y una
-alternativa sin Supabase.
+**Decisiones de seguridad deliberadas:**
+- RLS en todas las tablas: lectura pública, escritura solo con `service_role` (nunca el `anon key`)
+- API key de Gemini en el servidor (Supabase secrets), nunca en el bundle del navegador
+- Inputs sanitizados en la Edge Function antes de enviarlos al modelo
+- Sin `localStorage` para datos sensibles
 
 ---
 
-## El pipeline de deteccion
+## Pipeline de detección
 
-Esto es el corazon del proyecto: `pipeline/detection_engine.py` lee logs
-(formato JSON Lines, uno por linea, igual a como los entregan shippers reales
-como Filebeat) y aplica 5 reglas, cada una mapeada a una tecnica de
-[MITRE ATT&CK](https://attack.mitre.org/):
+El corazón del proyecto es `pipeline/detection_engine.py`. Lee logs en formato JSON Lines (el mismo que usan shippers reales como Filebeat/Fluentd) y aplica 5 reglas:
 
-| # | Regla | Logica | Umbral | Tecnica MITRE |
-|---|-------|--------|--------|---------------|
-| 1 | Fuerza bruta | N intentos de login fallidos desde la misma IP en una ventana corta | 5 fallos / 60s | [T1110 - Brute Force](https://attack.mitre.org/techniques/T1110/) |
-| 2 | Inyeccion SQL | Patrones de sintaxis SQL (`OR 1=1`, `UNION SELECT`, `--`, `DROP TABLE`) en peticiones HTTP | regex sobre path/query | [T1190 - Exploit Public-Facing Application](https://attack.mitre.org/techniques/T1190/) |
-| 3 | Escaneo de puertos | Una IP conecta a muchos puertos distintos en poco tiempo | 50 puertos / 60s | [T1595.001 - Scanning IP Blocks](https://attack.mitre.org/techniques/T1595/001/) |
-| 4 | Credential stuffing | Una IP prueba varios usuarios distintos y finalmente logra acceso | 3+ usuarios fallidos + 1 exito | [T1110.004 - Credential Stuffing](https://attack.mitre.org/techniques/T1110/004/) |
-| 5 | Acceso fuera de horario | Login exitoso de una cuenta legitima en horario anomalo | fuera de horario laboral simulado | [T1078 - Valid Accounts](https://attack.mitre.org/techniques/T1078/) |
+| # | Regla | Lógica | Umbral | MITRE |
+|---|-------|--------|--------|-------|
+| 1 | Fuerza bruta | N fallos de login desde misma IP en ventana corta | 5 fallos / 60s | [T1110](https://attack.mitre.org/techniques/T1110/) |
+| 2 | Inyección SQL | Patrones SQL en requests HTTP (`OR 1=1`, `UNION SELECT`, `--`) | regex sobre path/query | [T1190](https://attack.mitre.org/techniques/T1190/) |
+| 3 | Escaneo de puertos | Una IP conecta a muchos puertos distintos en poco tiempo | 50 puertos / 60s | [T1595.001](https://attack.mitre.org/techniques/T1595/001/) |
+| 4 | Credential stuffing | IP prueba múltiples usuarios distintos y logra acceso | 3+ usuarios fallidos + éxito | [T1110.004](https://attack.mitre.org/techniques/T1110/004/) |
+| 5 | Acceso fuera de horario | Login exitoso de cuenta legítima en horario anómalo | fuera de horario laboral | [T1078](https://attack.mitre.org/techniques/T1078/) |
 
-Cada regla esta documentada en el codigo con su justificacion de seguridad
-(por que ese patron indica un ataque, no solo "como" detectarlo).
-
-La salida (`pipeline/output/dashboard_data.json`) tiene la forma exacta que
-consume el frontend: alertas priorizadas, resumen por IP, distribucion de
-amenazas y series para el grafico horario.
+Cada regla está documentada con la justificación de seguridad: por qué ese patrón indica un ataque, no solo cómo detectarlo.
 
 ---
 
-## 📊 Datos: simulados vs reales
+## Stack
 
-Honestidad ante todo, porque es lo primero que pregunta cualquier revisor
-tecnico:
-
-**Lo que es simulado:**
-- Los logs en `pipeline/data/*.jsonl` son generados por
-  `pipeline/log_generator.py` con una semilla fija (reproducibles).
-- Incluyen trafico "normal" (patron de oficina, concentrado en horario
-  laboral) mas 5 ataques inyectados deliberadamente para que el motor de
-  deteccion tenga algo que encontrar.
-- Las IPs atacantes usadas corresponden a rangos que en reportes publicos de
-  threat intelligence aparecen frecuentemente asociados a abuso (ej. nodos
-  de salida Tor), elegidas para que el dataset se vea realista - pero los
-  eventos especificos son ficticios.
-- La geolocalizacion usa un mapeo local fijo (`GEO_LOOKUP` en
-  `detection_engine.py`).
-
-**Lo que es real:**
-- Las 5 reglas de deteccion implementan logica real usada en SOCs (ventanas
-  deslizantes, deteccion de patrones, correlacion de eventos).
-- El mapeo a MITRE ATT&CK usa tecnicas e IDs reales del framework.
-- El esquema de Supabase y el manejo de RLS / service_role siguen practicas
-  reales de seguridad de datos.
-
-**Como pasar a datos reales:**
-1. Desplegar un honeypot (ver [`docs/honeypot-setup.md`](docs/honeypot-setup.md))
-   y generar logs reales de ataques de internet en horas.
-2. Reemplazar la geolocalizacion local por una API real
-   ([ip-api.com](https://ip-api.com), gratis para bajo volumen).
-3. Conectar feeds de threat intelligence (AbuseIPDB, AlienVault OTX) para
-   enriquecer las alertas con reputacion real de IPs.
-
----
-
-## Stack tecnologico
-
-| Capa | Tecnologia |
+| Capa | Tecnología |
 |------|-----------|
-| Generacion y deteccion | Python 3 (sin dependencias pesadas; `requests` solo para el loader de Supabase) |
-| Persistencia | Supabase (Postgres + RLS + Realtime) |
+| Detección | Python 3.11 — `detection_engine.py` con 5 reglas + `log_generator.py` |
+| Tests | pytest — 29 tests (unitarios por regla + integración end-to-end) |
+| Base de datos | Supabase (Postgres + RLS + Realtime) |
 | Frontend | React 19 + Vite + Chart.js (`react-chartjs-2`) |
-| IA | Claude API (Anthropic), via Supabase Edge Function como proxy (o BYOK) |
-| Deploy | GitHub Pages (frontend, via GitHub Actions) + Supabase (backend gestionado) |
-
----
-
-## Como correrlo
-
-### 1. Generar datos y alertas
-
-```bash
-cd pipeline
-pip install -r requirements.txt --break-system-packages
-python3 log_generator.py      # genera pipeline/data/*.jsonl
-python3 detection_engine.py   # genera pipeline/output/dashboard_data.json
-```
-
-### 2. Frontend (modo estatico, sin Supabase)
-
-El frontend ya viene con una copia de `dashboard_data.json` en
-`frontend/src/data/`. Para verlo:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Para refrescar el dashboard con una nueva corrida del pipeline:
-
-```bash
-cp pipeline/output/dashboard_data.json frontend/src/data/
-```
-
-El asistente IA mostrara instrucciones de configuracion hasta que conectes
-la Opcion A o B de `docs/api-key-handling.md`. Ver
-[`frontend/README.md`](frontend/README.md) para el detalle completo,
-incluyendo deploy a GitHub Pages con GitHub Actions.
-
-### 3. (Opcional) Cargar a Supabase
-
-```bash
-# Ejecuta supabase/schema.sql en el SQL Editor de tu proyecto Supabase primero
-export SUPABASE_URL="https://xxxx.supabase.co"
-export SUPABASE_SERVICE_ROLE_KEY="..."
-python3 pipeline/load_to_supabase.py
-```
-
-### 4. (Opcional) Desplegar el proxy de IA
-
-```bash
-supabase functions deploy ai-proxy
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Luego configura `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en
-`frontend/.env.local` (ver `frontend/.env.example`).
-
----
-
-## Seguridad del proyecto
-
-Puntos especificos que se revisaron deliberadamente, porque un proyecto de
-ciberseguridad con fallas de seguridad obvias resta mas de lo que suma:
-
-- **RLS habilitado** en todas las tablas de Supabase: lectura publica,
-  escritura solo con `service_role` (ver `supabase/schema.sql`).
-- **API key de Anthropic nunca en el frontend**: vive como secret de la Edge
-  Function (ver `supabase/functions/ai-proxy/index.ts`).
-- **Inputs sanitizados** en la Edge Function (limite de longitud en
-  `question` y `alertsContext` antes de enviarlos al modelo).
-- **Sin localStorage/sessionStorage** para datos sensibles (ver alternativa
-  BYOK en `docs/api-key-handling.md`).
-
----
-
-## Roadmap / proximos pasos
-
-- [x] Tests automatizados para cada regla de deteccion (`pipeline/tests/`, 29 tests con pytest)
-- [x] Flujo de resolucion/triage de alertas en la UI (ver `AlertsPanel.jsx`)
-- [ ] Honeypot real con Cowrie para reemplazar logs sinteticos
-- [ ] Geolocalizacion real via ip-api.com
-- [ ] Enriquecimiento con AbuseIPDB / AlienVault OTX
-- [ ] Mas reglas de deteccion (XSS, exfiltracion de datos, beaconing C2)
-- [ ] Dashboard de "alert fatigue" - metricas de falsos positivos
-- [ ] Persistir el estado "resuelta" en Supabase (requiere autenticacion -
-      la funcion `resolve_alert()` en `supabase/schema.sql` ya esta lista
-      para esto; hoy el frontend la deja en memoria de sesion, ver nota en
-      `AlertsPanel.jsx`)
+| Asistente IA | Gemini 2.5 Flash vía Supabase Edge Function (proxy seguro) |
+| CI/CD | GitHub Actions — tests automáticos + deploy a GitHub Pages |
 
 ---
 
@@ -216,37 +96,69 @@ ciberseguridad con fallas de seguridad obvias resta mas de lo que suma:
 
 ```bash
 cd pipeline
-pip install -r requirements.txt --break-system-packages
+pip install -r requirements.txt
 python3 -m pytest -v
 ```
 
-29 tests cubren las 5 reglas de deteccion de forma aislada (eventos
-sinteticos minimos, no dependen de `log_generator.py`) mas un test de
-integracion que corre el pipeline completo end-to-end y valida la forma del
-`dashboard_data.json` resultante - el mismo tipo de chequeo que hubiera
-atrapado el bug real de nombres de columna que encontramos en
-`load_to_supabase.py` durante el desarrollo. Corren automaticamente en cada
-push via `.github/workflows/tests.yml`.
+29 tests cubren las 5 reglas de detección de forma aislada — cada test construye eventos sintéticos mínimos y verifica tanto el caso positivo (regla dispara) como el negativo (no dispara por debajo del umbral). Más un test de integración que corre el pipeline completo y valida la forma exacta del `dashboard_data.json`.
+
+Los tests corren automáticamente en cada push vía `.github/workflows/tests.yml`.
 
 ---
 
-## Limitaciones conocidas
+## Correr localmente
 
-- El dataset sintetico es pequeno (~770 eventos / 24h); en un entorno real
-  el volumen seria ordenes de magnitud mayor y requeriria procesamiento por
-  lotes o streaming.
-- Las reglas son deterministicas (basadas en umbrales fijos), no usan
-  machine learning. Es una decision deliberada para que la logica sea
-  explicable - un requisito real en SOCs, donde cada alerta debe poder
-  justificarse.
-- La regla de "acceso fuera de horario" genera falsos positivos legitimos
-  (alguien que de verdad trabaja de madrugada). En un SOC real esto se
-  ajustaria con una baseline por usuario, no un umbral global.
+```bash
+# 1. Pipeline de detección
+cd pipeline
+pip install -r requirements.txt
+python3 log_generator.py
+python3 detection_engine.py
+cp output/dashboard_data.json ../frontend/src/data/
+
+# 2. Frontend
+cd ../frontend
+npm install
+npm run dev
+# → http://localhost:5173/securedash/
+```
+
+Para el asistente IA local, configura `frontend/.env.local` (ver `frontend/.env.example`).
+
+---
+
+## Datos: simulados vs reales
+
+Los logs son generados por `log_generator.py` con una semilla fija (reproducibles). Incluyen tráfico "normal" más 5 ataques inyectados deliberadamente para que el motor de detección tenga patrones que encontrar.
+
+**Lo que es real:** las reglas de detección, la lógica de ventana deslizante, el mapeo MITRE ATT&CK, y el esquema de seguridad de Supabase.
+
+**Cómo pasar a datos reales:** desplegar un honeypot con [Cowrie](https://cowrie.readthedocs.io/) — en horas tendrás ataques reales de internet contra tu servidor. Ver [`docs/honeypot-setup.md`](docs/honeypot-setup.md).
+
+---
+
+## Roadmap
+
+- [x] 5 reglas de detección mapeadas a MITRE ATT&CK
+- [x] 29 tests automatizados (pytest)
+- [x] Asistente IA con proxy seguro (Gemini vía Supabase Edge Function)
+- [x] Flujo de triage y resolución de alertas en la UI
+- [x] CI/CD con GitHub Actions
+- [x] Deploy en GitHub Pages
+- [ ] Honeypot real con Cowrie
+- [ ] Geolocalización real vía ip-api.com
+- [ ] Enriquecimiento con AbuseIPDB / AlienVault OTX
+- [ ] Más reglas: XSS, exfiltración de datos, beaconing C2
+- [ ] Persistencia del triage en Supabase (función `resolve_alert()` ya implementada en el schema, requiere autenticación)
+
+---
+
+## Contexto
+
+La mayoría de las PYMEs chilenas no tiene presupuesto para herramientas SOC reales como Splunk o Wazuh. Este proyecto es un ejercicio práctico para entender el ciclo completo de detección de amenazas — pipeline de datos, reglas de detección, visualización y explicación asistida por IA — usando solo herramientas gratuitas o de bajo costo.
 
 ---
 
 ## Licencia
 
-MIT. Este es un proyecto educativo / de portafolio - no esta pensado como
-producto de seguridad listo para produccion sin las extensiones descritas en
-el roadmap.
+MIT — proyecto educativo / portafolio.
