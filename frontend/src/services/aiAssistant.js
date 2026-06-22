@@ -55,7 +55,7 @@ async function askViaDirectApi(question, alertsContext, apiKey) {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemWithContext }] },
         contents: [{ role: "user", parts: [{ text: question.slice(0, 500) }] }],
-        generationConfig: { maxOutputTokens: 400, temperature: 0.4 },
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
       }),
     });
     if (!res.ok) {
