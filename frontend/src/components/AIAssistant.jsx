@@ -105,7 +105,7 @@ export default function AIAssistant({ alerts, pendingQuestion, onConsumePending 
           <div key={i} className={`ai-msg ai-msg--${m.role}`}>
             {m.role === "assistant" && <div className="ai-msg__label">🤖 SecureDash AI</div>}
             {m.role === "error" && <div className="ai-msg__label">⚠️ Error</div>}
-            {m.text}
+            <span dangerouslySetInnerHTML={{ __html: m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
           </div>
         ))}
         {loading && (
@@ -199,11 +199,13 @@ export default function AIAssistant({ alerts, pendingQuestion, onConsumePending 
           font-size: 12px;
         }
         .ai-msg {
-          padding: 8px 12px;
-          border-radius: var(--radius-sm);
-          font-size: 13px;
-          line-height: 1.5;
-          max-width: 90%;
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 90%;
+        word-break: break-word;
+        white-space: pre-wrap;
         }
         .ai-msg--user {
           background: var(--accent-soft);
