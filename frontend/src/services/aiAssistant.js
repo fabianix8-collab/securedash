@@ -23,9 +23,17 @@ async function askViaEdgeFunction(question, alertsContext) {
     const { data, error } = await supabase.functions.invoke("ai-proxy", {
       body: { question, alertsContext },
     });
-    if (error) throw error;
+
+    // supabase-js marca error cuando el status no es 2xx, pero tambien
+    // cuando hay un error de red. Si data existe y tiene text, es exito.
+    if (data?.text) {
+      return { text: data.text, mode: "edge-function" };
+    }
+
+    if (error) throw new Error(error.message || JSON.stringify(error));
     if (data?.error) throw new Error(data.error);
-    return { text: data.text, mode: "edge-function" };
+
+    throw new Error("Respuesta inesperada de la Edge Function");
   } catch (err) {
     return {
       error: `Error al llamar a la Edge Function: ${err.message}. Verifica que este desplegada y que GEMINI_API_KEY este configurada (supabase secrets set).`,
@@ -34,7 +42,7 @@ async function askViaEdgeFunction(question, alertsContext) {
 }
 
 async function askViaDirectApi(question, alertsContext, apiKey) {
-  const GEMINI_MODEL = "gemini-2.0-flash";
+  const GEMINI_MODEL = "gemini-2.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
   const systemWithContext = alertsContext
