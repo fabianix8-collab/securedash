@@ -104,6 +104,8 @@ python3 -m pytest -v
 
 Los tests corren automáticamente en cada push vía `.github/workflows/tests.yml`.
 
+> **Mantenimiento:** dependencias de `pipeline/requirements.txt` auditadas y actualizadas para resolver CVEs conocidos en `requests` y `pytest` — auditoría realizada con [GitScan](https://github.com/fabianix8-collab/gitscan), otra herramienta de este portafolio.
+
 ---
 
 ## Correr localmente
